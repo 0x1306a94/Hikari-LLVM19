@@ -242,19 +242,33 @@ INITIALIZE_PASS_DEPENDENCY(StringEncryption);
 INITIALIZE_PASS_DEPENDENCY(Substitution);
 INITIALIZE_PASS_END(Obfuscation, "obfus", "Enable Obfuscation", false, false)
 
-#if LLVM_VERSION_MAJOR >= 18
+#if LLVM_VERSION_MAJOR >= 13
 
 namespace llvm {
 
 PassPluginLibraryInfo getHikariPluginInfo() {
-  return {
-      LLVM_PLUGIN_API_VERSION, "Hikari", LLVM_VERSION_STRING,
-      [](PassBuilder &PB) {
-        PB.registerPipelineParsingCallback(
-            [](StringRef Name, ModulePassManager &FPM,
-               ArrayRef<PassBuilder::PipelineElement> InnerPipeline) {
+    outs() << "[obf] Hikari Plugin Load\n";
+    return {
+        LLVM_PLUGIN_API_VERSION, "Hikari", LLVM_VERSION_STRING,
+        [](PassBuilder &PB) {
+            PB.registerPipelineStartEPCallback(
+                [](llvm::ModulePassManager &MPM, llvm::OptimizationLevel Level) {
+                    outs() << "[obf] run.registerOptimizerLastEPCallback\n";
+                    if (EnableIRObfusaction) {
+                        outs() << "[obf] IR Obfuscation Enabled\n";
+                        MPM.addPass(ObfuscationPass());
+                    } else {
+                        outs() << "[obf] IR Obfuscation Disabled\n";
+                    }
+                });
+
+            PB.registerPipelineParsingCallback(
+                [](StringRef Name, ModulePassManager &FPM,
+                   ArrayRef<PassBuilder::PipelineElement> InnerPipeline) {
+                    outs() << "[obf] run.registerPipelineParsingCallback\n";
               if (Name == EnableIRObfusaction.ArgStr) {
                 EnableIRObfusaction = true;
+                outs() << "[obf] IR Obfuscation Enabled\n";
                 for (const auto &Element : InnerPipeline) {
                   if (Element.Name == EnableAntiClassDump.ArgStr) {
                     EnableAntiClassDump = true;
